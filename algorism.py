@@ -102,8 +102,6 @@ def fxStrSimilarity(str1, str2, strCharForEliminated):
                             tempDiag[0]['y'] = None
                             tempDiag = [tempDiag[0], 0]
                             break
-                    # 身體落在禁區的會裁切，沒有落在禁區的會整段出來。不論有沒有裁切過，都會加入到listAllTmpDiags2
-                    listAllTmpDiags2.append(tempDiag)
                 # 起點大於對角線的頭(身體有可能在禁區內或是禁區外)
                 else:
                     for tmpX in range(tempDiag[0]['x'], tempDiag[0]['x'] + tempDiag[1]):
@@ -115,7 +113,7 @@ def fxStrSimilarity(str1, str2, strCharForEliminated):
                     #   表示頭已經跑出禁區外，重設這條對角線的頭
                     # 所以跑到這裡要判斷長度
 
-                    # 整體長度還>2，保留這條對角線
+                    # 整體長度還>1，保留這條對角線
                     # 如果整條在禁區裡，這條對角線長度最多等於1
                     if (tempDiag[0]['x'] + tempDiag[1] - tmpX) > 1:
                         tempDiag[1] = tempDiag[0]['x'] + tempDiag[1] - tmpX
@@ -128,11 +126,41 @@ def fxStrSimilarity(str1, str2, strCharForEliminated):
                         tempDiag[0]['x'] = None
                         tempDiag[0]['y'] = None
                         tempDiag = [tempDiag[0], 0]
-                    if tempDiag[1] == 0:
-                        continue
-                    listAllTmpDiags2.append(tempDiag)
-            # listAllTmpDiags2會收集到這一輪剩下有效的對角線，然後看看要不要繼續跑while迴圈
-            listAllTmpDiags = listAllTmpDiags2
+                if tempDiag[1] == 0:
+                    continue
+                # 身體落在禁區的會裁切，沒有落在禁區的會整段出來。不論有沒有裁切過，都會加入到listAllTmpDiags2
+                listAllTmpDiags2.append(tempDiag)
+            # 接著要處理落入y軸禁區的對角線
+            # 先把listAllTmpDiags清空，用來接從listAllTmpDiags2過濾出來的對角線
+            listAllTmpDiags = []
+            for tempDiag in listAllTmpDiags2:
+                if tempDiag[0]['y'] < TheLongestDiag[0]['y']:
+                    for tmpY in range(tempDiag[0]['y'], tempDiag[0]['y'] + tempDiag[1]):
+                        if tmpY in listYAxisRestrictedZone and (tmpY - tempDiag[0]['y']) > 1:
+                            tempDiag = [tempDiag[0], tmpY - tempDiag[0]['y']]
+                            break
+                        elif tmpY in listYAxisRestrictedZone and (tmpY - tempDiag[0]['y']) == 1:
+                            tempDiag[0]['x'] = None
+                            tempDiag[0]['y'] = None
+                            tempDiag = [tempDiag[0], 0]
+                            break
+                else:
+                    for tmpY in range(tempDiag[0]['y'], tempDiag[0]['y'] + tempDiag[1]):
+                        if tmpY in listYAxisRestrictedZone:
+                            continue
+                        break
+                    if (tempDiag[0]['y'] + tempDiag[1] - tmpY) > 1:
+                        tempDiag[1] = tempDiag[0]['y'] + tempDiag[1] - tmpY
+                        tempDiag[0]['x'] += (tmpY - tempDiag[0]['y'])
+                        tempDiag[0]['y'] = tmpY
+                        tempDiag = [tempDiag[0], tempDiag[1]]
+                    else:
+                        tempDiag[0]['x'] = None
+                        tempDiag[0]['y'] = None
+                        tempDiag = [tempDiag[0], 0]
+                if tempDiag[1] == 0:
+                    continue
+                listAllTmpDiags.append(tempDiag)
         # 跑完比對迴圈後算分
         numSimilarityScore = numSimilarityScoreNumerator / numSimilarityScoreDenominator
     else:
@@ -163,28 +191,3 @@ def fxFindTempLengthDiagonal(listStrings, listMetrics, diagX, diagY, listXAxisMa
         return numTmpLenDiag
     # 找完整條當然也要return
     return numTmpLenDiag
-
-# 把輸入的list先依照相似分數由大排到小
-# 取符合最大分數的那些items再依照藥品字數由小排到大
-# 再取符合最少字的那些items
-def fxGetExactMatchedItems(listIuput, numMaxNumOfMatchedItems):
-    # 取出配對最高分
-    numMaxScore = max(listIuput, key=lambda x: x[1][0])[1][0]
-    # 如果0分，就回傳無匹配
-    if numMaxScore == 0:
-        return [[('無匹配', '', '', ''), [0, '']]]
-    # 取出分數最高的items
-    listMostSimilarItems = list(filter(lambda x: x[1][0] > numMaxScore - 0.01, listIuput))
-    listMostSimilarItems = sorted(listMostSimilarItems, key=lambda x: x[1][0], reverse=True)
-    # 如果筆數大於numMaxNumOfMatchedItems，只取numMaxNumOfMatchedItems筆
-    if len(listMostSimilarItems) > numMaxNumOfMatchedItems:
-        listMostSimilarItems = listMostSimilarItems[0:numMaxNumOfMatchedItems]
-    # 找到名稱最短的字典item的字數
-    # numMinNameLength = len(min(listMostSimilarItems, key=lambda x: len(x[0][0]))[0][0])
-    # 取出字數最少的那些items
-    # listMostSimilarItems = list(filter(lambda x: len(x[0][0]) == numMinNameLength, listMostSimilarItems))
-    return listMostSimilarItems
-
-def fxCalSimilarity(DictItem, MedItem, strCharForEliminated):
-    listSimilarity = fxStrSimilarity(MedItem[2], DictItem[0], strCharForEliminated)
-    return [DictItem, listSimilarity]
